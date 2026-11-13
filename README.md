@@ -11,12 +11,12 @@ docker build -t sqrtvins-pgo .
 docker run --rm sqrtvins-pgo test
 ```
 
-Download the ROS bag for **V1_01_easy** from the [EuRoC MAV dataset](https://projects.asl.ethz.ch/datasets/euroc-mav/). Place it at `data/V1_01_easy.bag`. The image includes the corresponding fixed-camera calibration.
+Download the ROS bag for **V1_01_easy** from the [EuRoC MAV dataset](https://projects.asl.ethz.ch/datasets/euroc-mav/). Place it at `../pgo-data/V1_01_easy.bag`, next to the checkout. The image includes the corresponding fixed-camera calibration.
 
 ```sh
-mkdir -p data out
+mkdir -p ../pgo-data ../pgo-output
 docker run --rm --network none \
-  -v "$PWD/data:/data:ro" -v "$PWD/out:/out" sqrtvins-pgo \
+  -v "$PWD/../pgo-data:/data:ro" -v "$PWD/../pgo-output:/out" sqrtvins-pgo \
   run --bag /data/V1_01_easy.bag --output /out/V1_01_easy
 ```
 

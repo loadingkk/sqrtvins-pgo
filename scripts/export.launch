@@ -1,0 +1,36 @@
+<?xml version='1.0' encoding='utf-8'?>
+<launch>
+  <arg name="verbosity" default="INFO" />
+  <arg name="config_path" />
+  <arg name="seed" default="1" />
+  <arg name="max_cameras" default="2" />
+  <arg name="use_stereo" default="true" />
+  <arg name="bag_start" default="0.0" />
+  <arg name="bag_durr" default="-1" />
+  <arg name="bag" />
+  <arg name="dosave" default="true" />
+  <arg name="dotime" default="true" />
+  <arg name="path_est" default="/tmp/traj_estimate.txt" />
+  <arg name="path_time" default="/tmp/traj_timing.txt" />
+  <arg name="node_name" default="ov_srvins" />
+  <node name="$(arg node_name)" pkg="ov_srvins" type="ros1_serial_msckf" output="screen" clear_params="true" required="true">
+    <param name="seed" type="int" value="$(arg seed)" />
+    <param name="path_bag" type="str" value="$(arg bag)" />
+    <param name="bag_start" type="double" value="$(arg bag_start)" />
+    <param name="bag_durr" type="double" value="$(arg bag_durr)" />
+    <param name="verbosity" type="str" value="$(arg verbosity)" />
+    <param name="path_gt" type="str" value="" />
+    <param name="config_path" type="str" value="$(arg config_path)" />
+    <param name="use_stereo" type="bool" value="$(arg use_stereo)" />
+    <param name="max_cameras" type="int" value="$(arg max_cameras)" />
+    <param name="record_timing_information" type="bool" value="$(arg dotime)" />
+    <param name="record_timing_filepath" type="str" value="$(arg path_time)" />
+  </node>
+  <group if="$(arg dosave)">
+    <node name="recorder_estimate_$(arg node_name)" pkg="ov_eval" type="pose_to_file" output="screen" required="true">
+      <param name="topic" type="str" value="/$(arg node_name)/poseimu" />
+      <param name="topic_type" type="str" value="PoseWithCovarianceStamped" />
+      <param name="output" type="str" value="$(arg path_est)" />
+    </node>
+  </group>
+</launch>

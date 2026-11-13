@@ -1,0 +1,8 @@
+.git
+.venv
+**/__pycache__
+*.bag
+*.mcap
+out
+verification
+vendor/*.sha256

@@ -1,0 +1,21 @@
+name: Build and test
+
+on: [push, pull_request]
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cd vendor && sha256sum -c sqrtVINS.sha256 VINS-Fusion.sha256
+      - run: docker build --build-arg BUILD_JOBS=2 -t sqrtvins-pgo .
+      - run: docker run --rm sqrtvins-pgo check --help
+      - run: docker run --rm sqrtvins-pgo test
+      - run: >-
+          docker run --rm --entrypoint python3
+          -v "$PWD/tests:/opt/sqrtvins-pgo/tests:ro" sqrtvins-pgo
+          -m unittest discover -s /opt/sqrtvins-pgo/tests -v
+      - run: >-
+          docker run --rm --network none --entrypoint python3
+          -v "$PWD/tests:/opt/sqrtvins-pgo/tests:ro" sqrtvins-pgo
+          /opt/sqrtvins-pgo/tests/smoke_replay.py

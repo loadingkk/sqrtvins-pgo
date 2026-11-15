@@ -4,25 +4,61 @@ Run sqrtVINS on a recorded camera and IMU sequence, then apply offline loop clos
 
 ## Quick start
 
-Build the Docker image from this directory. The release was tested on Linux x86-64.
+Build the Docker image from the checkout in a Linux x86-64 shell with Docker available. Keep recordings, calibration files for your rig, and outputs in directories next to the checkout.
 
 ```sh
 docker build -t sqrtvins-pgo .
 docker run --rm sqrtvins-pgo test
+mkdir -p ../pgo-data ../pgo-output
+data_dir="$(cd ../pgo-data && pwd)"
+output_dir="$(cd ../pgo-output && pwd)"
 ```
 
-Download the ROS bag for **V1_01_easy** from the [EuRoC MAV dataset](https://projects.asl.ethz.ch/datasets/euroc-mav/). Place it at `../pgo-data/V1_01_easy.bag`, next to the checkout. The image includes the corresponding fixed-camera calibration.
+Use a new destination under `/out` for each run. On Linux, add `--user "$(id -u):$(id -g)" -e HOME=/tmp` before the image name if you want output files owned by your user.
+
+### EuRoC ROS 1 bag
+
+Get the **V2_01_easy** ROS 1 bag from the [EuRoC MAV dataset](https://projects.asl.ethz.ch/datasets/euroc-mav/) and place it at `../pgo-data/V2_01_easy.bag`. The [dataset mirror](https://huggingface.co/datasets/GlowBond/EuRoC_MAV_Dataset/blob/main/vicon_room2.zip) contains the bag at `vicon_room2/V2_01_easy/V2_01_easy.bag`. The Docker image includes the EuRoC stereo calibration.
 
 ```sh
-mkdir -p ../pgo-data ../pgo-output
+docker run --rm --network none -v "$data_dir:/data:ro" sqrtvins-pgo \
+  check --bag /data/V2_01_easy.bag
 docker run --rm --network none \
-  -v "$PWD/../pgo-data:/data:ro" -v "$PWD/../pgo-output:/out" sqrtvins-pgo \
-  run --bag /data/V1_01_easy.bag --output /out/V1_01_easy
+  -v "$data_dir:/data:ro" -v "$output_dir:/out" sqrtvins-pgo \
+  run --bag /data/V2_01_easy.bag --output /out/V2_01_easy
 ```
 
-Each run uses a new output directory. On Linux, add `--user "$(id -u):$(id -g)" -e HOME=/tmp` before the image name to write files as your own user.
+Find the trajectories and logs in `../pgo-output/V2_01_easy/`. Use the same commands with a different bag filename and output name for other EuRoC sequences.
 
-Use `check --bag /data/V1_01_easy.bag` with the same input mount to list the configured camera models and message counts without running VIO. For your own rig, pass the same `--config` and `--cameras` options you plan to use with `run`.
+### Visio device MCAP
+
+To start from MCAP, you need access to [visio-setup](https://github.com/General-Intelligence-Labs/visio-setup) and its official `calib/mcap_to_rosbag.py` converter. If you already have a bag from the converter, place it at `../pgo-data/ego.bag` and skip to the calibration step below.
+
+Set `setup_dir` to your converter checkout and `recording` to your MCAP file. The commands use Python 3 with `venv` support, provided by the `python3-venv` package on Debian and Ubuntu.
+
+```sh
+setup_dir=/path/to/visio-setup
+recording=/path/to/ego_0000.mcap
+python3 -m venv ../visio-converter-env
+../visio-converter-env/bin/python -m pip install -r "$setup_dir/calib/requirements.txt"
+../visio-converter-env/bin/python "$setup_dir/calib/mcap_to_rosbag.py" \
+  --mcap "$recording" --out "$data_dir/ego.bag" --img-hz 0 --motion any
+```
+
+`--img-hz 0` keeps the native image rate and `--motion any` keeps frames regardless of motion. For a split recording, pass all MCAP parts to `--mcap` in recording order. The converter writes images on `/cam0/image_raw` and `/cam1/image_raw`, and IMU samples on `/imu0`. The raw-image bag can be substantially larger than the MCAP.
+
+Put your device's `estimator_config.yaml` and its camera and IMU calibration YAMLs in `../pgo-data/rig/`. In the estimator file, point `relative_config_imucam` and `relative_config_imu` to those two files. The calibration must match the device and recorded image resolution. Set the `rostopic` entries to the three topic names above and follow the [configuration requirements](#use-your-own-recording). The [EuRoC example](examples/euroc) shows how the three files refer to one another.
+
+```sh
+docker run --rm --network none -v "$data_dir:/data:ro" sqrtvins-pgo \
+  check --bag /data/ego.bag --config /data/rig/estimator_config.yaml --cameras 2
+docker run --rm --network none \
+  -v "$data_dir:/data:ro" -v "$output_dir:/out" sqrtvins-pgo \
+  run --bag /data/ego.bag --config /data/rig/estimator_config.yaml --cameras 2 \
+  --output /out/ego
+```
+
+Find the results in `../pgo-output/ego/`. For either example, `check` lists the configured camera models and the message counts for the selected topics before you run VIO.
 
 ## Use your own recording
 
@@ -45,7 +81,7 @@ The PGO backend reads camera images, metric IMU poses, fixed spatial calibration
 
 The two TUM files contain `time x y z qx qy qz qw`. Timestamps are seconds on the IMU clock, XYZ is in meters in the VIO world frame, and the quaternion rotates IMU coordinates into that frame. Loop indices in the summary are zero-based. A successful run may report zero loop edges.
 
-To repeat only PGO, use `replay --packets /out/V1_01_easy/packets --output /out/replay` with the same mount. Add `--no-loop` to produce a control trajectory with loop detection disabled.
+To repeat only PGO, use `replay --packets /out/V2_01_easy/packets --output /out/replay` with the same output mount. Add `--no-loop` to produce a control trajectory with loop detection disabled.
 
 ## Source and licensing
 

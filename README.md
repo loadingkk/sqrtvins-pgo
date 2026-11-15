@@ -30,22 +30,9 @@ docker run --rm --network none \
 
 Find the trajectories and logs in `../pgo-output/V2_01_easy/`. Use the same commands with a different bag filename and output name for other EuRoC sequences.
 
-### Visio device MCAP
+### Visio device ROS 1 bag
 
-To start from MCAP, you need access to [visio-setup](https://github.com/General-Intelligence-Labs/visio-setup) and its official `calib/mcap_to_rosbag.py` converter. If you already have a bag from the converter, place it at `../pgo-data/ego.bag` and skip to the calibration step below.
-
-Set `setup_dir` to your converter checkout and `recording` to your MCAP file. The commands use Python 3 with `venv` support, provided by the `python3-venv` package on Debian and Ubuntu.
-
-```sh
-setup_dir=/path/to/visio-setup
-recording=/path/to/ego_0000.mcap
-python3 -m venv ../visio-converter-env
-../visio-converter-env/bin/python -m pip install -r "$setup_dir/calib/requirements.txt"
-../visio-converter-env/bin/python "$setup_dir/calib/mcap_to_rosbag.py" \
-  --mcap "$recording" --out "$data_dir/ego.bag" --img-hz 0 --motion any
-```
-
-`--img-hz 0` keeps the native image rate and `--motion any` keeps frames regardless of motion. For a split recording, pass all MCAP parts to `--mcap` in recording order. The converter writes images on `/cam0/image_raw` and `/cam1/image_raw`, and IMU samples on `/imu0`. The raw-image bag can be substantially larger than the MCAP.
+Place the Visio ROS 1 bag at `../pgo-data/ego.bag`. This example uses raw stereo images on `/cam0/image_raw` and `/cam1/image_raw`, and IMU samples on `/imu0`. If your bag has a different filename, use that filename in both commands below.
 
 Put your device's `estimator_config.yaml` and its camera and IMU calibration YAMLs in `../pgo-data/rig/`. In the estimator file, point `relative_config_imucam` and `relative_config_imu` to those two files. The calibration must match the device and recorded image resolution. Set the `rostopic` entries to the three topic names above and follow the [configuration requirements](#use-your-own-recording). The [EuRoC example](examples/euroc) shows how the three files refer to one another.
 
@@ -64,7 +51,7 @@ Find the results in `../pgo-output/ego/`. For either example, `check` lists the 
 
 The runner expects a ROS 1 bag containing raw `sensor_msgs/Image` messages and one `sensor_msgs/Imu` topic. Put the estimator, camera, and IMU YAML files together in a mounted directory. Set the topic names and sensor calibrations in the referenced YAML files, and set `calib_cam_extrinsics` and `calib_cam_intrinsics` to `false`. The camera-to-IMU time offset may still be estimated.
 
-Pass `--config /data/rig/estimator_config.yaml` to select that configuration. Use `--cameras 2` for stereo, the default. The monocular input path (`--cameras 1`) was exercised on a 30-second EuRoC sample with zero accepted loop edges. The loop detector uses `cam0`. Both `pinhole` + `equidistant` and `pinhole` + `radtan` calibration are recognized. The stereo reader pairs frames less than 20 ms apart in bag record time. Convert other recording formats to a ROS 1 bag with the expected message types before running the pipeline.
+Pass `--config /data/rig/estimator_config.yaml` to select that configuration. Use `--cameras 2` for stereo, the default. The monocular input path (`--cameras 1`) was exercised on a 30-second EuRoC sample with zero accepted loop edges. The loop detector uses `cam0`. Both `pinhole` + `equidistant` and `pinhole` + `radtan` calibration are recognized. The stereo reader pairs frames less than 20 ms apart in bag record time.
 
 The PGO backend reads camera images, metric IMU poses, fixed spatial calibration and triangulated features from the exported keyframes. Raw IMU samples are handled by sqrtVINS. Successful PGO correction depends on visually recognizable revisits and usable VIO geometry. See `summary.json` for the accepted loop edges.
 
